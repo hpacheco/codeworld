@@ -1,3 +1,15 @@
 [submodule "third_party/blockly"]
   path = third_party/blockly
   url = https://github.com/stefan-j/blockly
+[submodule "codeworld-api-gloss"]
+	path = codeworld-api-gloss
+	url = https://github.com/hpacheco/codeworld-api-gloss
+[submodule "gloss-window"]
+	path = gloss-window
+	url = https://github.com/hpacheco/gloss-window
+[submodule "roshask"]
+	path = roshask
+	url = https://github.com/hpacheco/roshask
+[submodule "rosy"]
+	path = rosy
+	url = https://github.com/hpacheco/rosy
