@@ -64,4 +64,5 @@ main = do
             migrateMode (BuildMode "haskell")
             migrateMode (BuildMode "codeworld")
             migrateMode (BuildMode "blocklyXML")
+            migrateMode (BuildMode "rosy")
             putStrLn "Successfully migrated."

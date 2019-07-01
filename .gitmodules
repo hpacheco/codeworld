@@ -10,3 +10,6 @@
 [submodule "rosy"]
 	path = rosy
 	url = https://github.com/hpacheco/rosy
+[submodule "roshask"]
+	path = roshask
+	url = https://github.com/hpacheco/roshask

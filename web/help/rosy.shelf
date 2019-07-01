@@ -1,0 +1,10 @@
+{
+  "default": "doc-rosy/Rosy.html",
+  "blocks": false,
+  "named": {
+    "Robot programming":   "doc-rosy/Rosy.html",
+    "General programming": "doc-base/Prelude.html",
+    "Environment":         "help/GuideIntro.md",
+    "Editor":              "help/editor-haskell.md"
+  }
+}

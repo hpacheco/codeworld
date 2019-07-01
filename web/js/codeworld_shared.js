@@ -426,8 +426,8 @@ function registerStandardHints(successFunc) {
             return data;
         }
     });
-
-    sendHttp('GET', 'codeworld-base.txt', null, request => {
+    const basefile = (window.buildMode === 'rosy') ? 'rosy.txt' : 'codeworld-base.txt'
+    sendHttp('GET', basefile, null, request => {
         let lines = [];
         if (request.status !== 200) {
             console.log('Failed to load autocomplete word list.');

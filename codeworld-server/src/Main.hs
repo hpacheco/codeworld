@@ -144,6 +144,7 @@ getBuildMode =
     getParam "mode" >>= \case
         Just "haskell" -> return (BuildMode "haskell")
         Just "blocklyXML" -> return (BuildMode "blocklyXML")
+        Just "rosy" -> return (BuildMode "rosy")
         _ -> return (BuildMode "codeworld")
 
 site :: CodeWorldHandler
@@ -168,6 +169,7 @@ site ctx =
             , ("runBaseJS", runBaseHandler ctx)
             , ("runMsg", runMessageHandler ctx)
             , ("haskell", serveFile "web/env.html")
+            , ("rosy", serveFile "web/rosy.html")
             , ("blocks", serveFile "web/blocks.html")
             , ("funblocks", serveFile "web/blocks.html")
             , ("indent", indentHandler ctx)

@@ -49,7 +49,11 @@ async function init() {
 
     if (window.location.pathname === '/haskell') {
         window.buildMode = 'haskell';
-    } else {
+    }
+    else if (window.location.pathname === '/rosy') {
+        window.buildMode = 'rosy';
+    }
+    else {
         window.buildMode = 'codeworld';
     }
     document.documentElement.classList.add(window.buildMode);
@@ -327,6 +331,7 @@ function initCodeworld() {
     window.codeworldEditor.refresh();
     window.codeworldEditor.on('cursorActivity', updateArgHelp);
     window.codeworldEditor.on('refresh', updateArgHelp);
+    window.codeworldEditor.setValue("asd");
 
     if (window.localStorage.getItem('darkMode') === 'true') toggleTheme();
 
@@ -493,7 +498,7 @@ function stopRecording() {
 }
 
 function setMode(force) {
-    if (window.buildMode === 'haskell') {
+    if (window.buildMode === 'haskell' || buildMode === 'rosy') {
         if (force || window.codeworldEditor.getMode().name !== 'haskell') {
             window.codeworldEditor.setOption('mode', 'haskell');
         }

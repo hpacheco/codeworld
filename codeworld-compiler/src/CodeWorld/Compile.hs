@@ -200,6 +200,21 @@ buildArgs "haskell" =
     , "-package"
     , "QuickCheck"
     ]
+buildArgs "rosy" = 
+    [ "-DGHCJS_BROWSER"
+    , "-ferror-spans"
+    , "-fno-diagnostics-show-caret"
+    , "-hide-package"
+    , "base"
+    , "-package"
+    , "rosy-base"
+    , "-package"
+    , "base-noprelude"
+    , "-package"
+    , "codeworld-api"
+    , "-package"
+    , "QuickCheck"
+    ]
 
 runCompiler :: FilePath -> Int -> [String] -> Bool -> IO (ExitCode, Text)
 runCompiler dir timeout args verbose =
