@@ -33,9 +33,9 @@ import Control.Monad.State
 import Data.Array
 import Data.Function (on)
 import Data.Generics
-import Data.Maybe (isJust, fromMaybe, catMaybes)
+import Data.Maybe
 import Data.Monoid
-import Data.List (sort, groupBy)
+import Data.List
 import Data.Text (Text, unpack)
 import Data.Text.Encoding (decodeUtf8)
 import Language.Haskell.Exts
@@ -50,11 +50,12 @@ checkCodeConventions = do
     checkOldStyleMixed mode
     checkOldStyleGray
     when (mode == "codeworld") $ do
-        checkCharacterLiterals
+        checkExcludedSyntax
         checkFunctionParentheses
         checkVarlessPatterns
         checkPatternGuards
         checkExtraCommas
+        checkNoncontiguousEquations
 
 -- Look for uses of Template Haskell or related features in the compiler.  These
 -- cannot currently be used, because the compiler isn't properly sandboxed, so
@@ -73,6 +74,34 @@ checkDangerousSource = do
             [ (noSrcSpan, CompileError,
                "error: Sorry, but your program uses forbidden language features.")
             ]
+
+-- Look for excluded syntax.  In CodeWorld mode, students are not intended to
+-- use some Haskell-specific features, such as do-blocks and character literals.
+checkExcludedSyntax :: MonadCompile m => m ()
+checkExcludedSyntax =
+    getParsedCode >>= \parsed -> case parsed of
+        Parsed mod -> addDiagnostics $ dedupErrorSpans $
+            everything (++) (mkQ [] checkExps) mod ++
+            everything (++) (mkQ [] checkPats) mod
+        _ -> return ()
+  where checkExps :: Exp SrcSpanInfo -> [Diagnostic]
+        checkExps (Do loc _)                    = [(loc, CompileError, doBlockMsg)]
+        checkExps (Lit loc (Char _ _ _))        = [(loc, CompileError, charLiteralMsg)]
+        checkExps (Lit loc (PrimChar _ _ _))    = [(loc, CompileError, charLiteralMsg)]
+        checkExps (VarQuote loc _)              = [(loc, CompileError, charLiteralMsg)]
+        checkExps (TypQuote loc _)              = [(loc, CompileError, charLiteralMsg)]
+        checkExps _                             = []
+
+        checkPats :: Pat SrcSpanInfo -> [Diagnostic]
+        checkPats (PLit loc _ (Char _ _ _))     = [(loc, CompileError, charLiteralMsg)]
+        checkPats (PLit loc _ (PrimChar _ _ _)) = [(loc, CompileError, charLiteralMsg)]
+        checkPats _                             = []
+
+        doBlockMsg = "error:\n" ++
+            "    The word do should not be used in your code.\n" ++
+            "    If this is a variable name, please choose another name."
+        charLiteralMsg = "error:\n" ++
+            "    Text should be written with double quotes, not single quotes."
 
 -- Looks for use of `mixed` with either a pair of colors (in CodeWorld mode) or
 -- two colors (in Haskell mode).  This is likely to be old code from before the
@@ -123,28 +152,46 @@ checkOldStyleGray =
                 "\n    For a different shade of gray, use light, dark, or HSL.")]
         oldStyleGray _ = []
 
--- Look for character literals in the source code.  These are always a mistake
--- in CodeWorld mode, since Text is used as a type even for single characters.
-checkCharacterLiterals :: MonadCompile m => m ()
-checkCharacterLiterals =
+-- Look for functions whose equations are not contiguous.
+checkNoncontiguousEquations :: MonadCompile m => m ()
+checkNoncontiguousEquations =
     getParsedCode >>= \parsed -> case parsed of
         Parsed mod -> addDiagnostics $
-            everything (++) (mkQ [] charLiteralExps) mod ++
-            everything (++) (mkQ [] charLiteralPats) mod
-        _ -> return ()  -- Fall back on GHC for parse errors.
-  where charLiteralExps :: Exp SrcSpanInfo -> [Diagnostic]
-        charLiteralExps (Lit loc (Char _ _ _))        = [(loc, CompileError, msg)]
-        charLiteralExps (Lit loc (PrimChar _ _ _))    = [(loc, CompileError, msg)]
-        charLiteralExps (VarQuote loc _)              = [(loc, CompileError, msg)]
-        charLiteralExps (TypQuote loc _)              = [(loc, CompileError, msg)]
-        charLiteralExps _                             = []
+            everything (++) (mkQ [] checkModule) mod ++
+            everything (++) (mkQ [] checkBinds) mod
+        _ -> return ()
+  where checkModule :: Module SrcSpanInfo -> [Diagnostic]
+        checkModule (Module _ _ _ _ decls) = checkDeclList decls
+        checkModule _ = []
 
-        charLiteralPats :: Pat SrcSpanInfo -> [Diagnostic]
-        charLiteralPats (PLit loc _ (Char _ _ _))     = [(loc, CompileError, msg)]
-        charLiteralPats (PLit loc _ (PrimChar _ _ _)) = [(loc, CompileError, msg)]
-        charLiteralPats _                             = []
+        checkBinds :: Binds SrcSpanInfo -> [Diagnostic]
+        checkBinds (BDecls _ decls) = checkDeclList decls
+        checkBinds _ = []
 
-        msg = "error:\n    Text should be written with double quotes, not single quotes."
+        checkDeclList :: [Decl SrcSpanInfo] -> [Diagnostic]
+        checkDeclList decls = map toMessage $
+            map (\elems -> (fst (head elems), map snd elems)) $
+            filter ((> 1) . length) $
+            groupBy ((==) `on` fst) $
+            sortBy (compare `on` fst) $
+            mapMaybe funDecl decls
+
+        funDecl :: Decl SrcSpanInfo -> Maybe (String, Decl SrcSpanInfo)
+        funDecl decl@(FunBind _ ((Match _ name _ _ _) : _))
+            = Just (nameStr name, decl)
+        funDecl decl@(FunBind _ ((InfixMatch _ _ name _ _ _) : _))
+            = Just (nameStr name, decl)
+        funDecl _ = Nothing
+
+        nameStr :: Name SrcSpanInfo -> String
+        nameStr (Ident _ s) = "function " ++ s
+        nameStr (Symbol _ s) = "operator (" ++ s ++ ")"
+
+        toMessage :: (String, [Decl SrcSpanInfo]) -> Diagnostic
+        toMessage (name, decls) = (ann (decls !! 1), CompileError, "error:\n" ++
+            "    Multiple equations for the same function must be contiguous.\n" ++
+            "    The " ++ name ++ " has equations at:\n" ++
+            (decls >>= \decl -> "    \8226 " ++ formatLocation (ann decl) ++ "\n"))
 
 -- Look for function applications without parentheses.  Since CodeWorld
 -- functions are usually applied with parentheses, this often indicates a
@@ -159,29 +206,15 @@ checkFunctionParentheses =
             everything (++) (mkQ [] badPatternApps) mod
         _ -> return ()  -- Fall back on GHC for parse errors.
 
-dedupErrorSpans :: [Diagnostic] -> [Diagnostic]
-dedupErrorSpans [] = []
-dedupErrorSpans [err] = [err]
-dedupErrorSpans ((loc1, sev1, msg1) : (loc2, sev2, msg2) : errs)
-  | loc1 `contains` loc2 = dedupErrorSpans ((loc1, sev1, msg1) : errs)
-  | otherwise = (loc1, sev1, msg1) : dedupErrorSpans ((loc2, sev2, msg2) : errs)
-  where
-    SrcSpanInfo {srcInfoSpan = span1} `contains` SrcSpanInfo {srcInfoSpan = span2} =
-        srcSpanFilename span1 == srcSpanFilename span2 &&
-        (srcSpanStartLine span1 < srcSpanStartLine span2 ||
-         (srcSpanStartLine span1 == srcSpanStartLine span2 &&
-          srcSpanStartColumn span1 <= srcSpanStartColumn span2)) &&
-        (srcSpanEndLine span1 > srcSpanEndLine span2 ||
-         (srcSpanEndLine span1 == srcSpanEndLine span2 &&
-          srcSpanEndColumn span1 >= srcSpanEndColumn span2))
-
 badExpApps :: Exp SrcSpanInfo -> [Diagnostic]
 badExpApps (App loc lhs rhs)
-    | not (isGoodExpAppLhs lhs) = [(ann rhs, CompileError, errorMsg)]
-    | not (isGoodExpAppRhs rhs) = [(ann rhs, CompileError, warningMsg)]
+    | not (isGoodExpAppLhs lhs) = [(ann rhs, CompileError, nonFuncErrorMsg)]
+    | isParenthesizedOpExp rhs  = [(ann rhs, CompileError, opErrorMsg)]
+    | not (isGoodExpAppRhs rhs) = [(ann rhs, CompileError, funcErrorMsg)]
   where
-    errorMsg = "error:" ++ missingParenError ++ multiplicationPhrase
-    warningMsg = "error:" ++ missingParenError ++ multiplicationPhrase ++ functionPhrase
+    opErrorMsg = "error:" ++ appliedToOperatorError
+    nonFuncErrorMsg = "error:" ++ missingParenError ++ multiplicationPhrase
+    funcErrorMsg = "error:" ++ missingParenError ++ multiplicationPhrase ++ functionPhrase
     functionPhrase
       | isLikelyFunctionExp lhs = missingParenFunctionSuggestion lhs rhs
       | otherwise = ""
@@ -191,18 +224,26 @@ badExpApps (App loc lhs rhs)
 badExpApps _ = []
 
 badMatchApps :: Match SrcSpanInfo -> [Diagnostic]
-badMatchApps (Match loc lhs pats _ _) =
-    take 1 [(ann p, CompileError, warningMsg p) | p <- pats, not (isGoodPatAppRhs p)]
+badMatchApps (Match loc lhs pats _ _) = take 1 $
+    [(ann p, CompileError, opErrorMsg) | p <- pats, isParenthesizedOpPat p] ++
+    [(ann p, CompileError, funcErrorMsg p) | p <- pats, not (isGoodPatAppRhs p)]
   where
-    warningMsg p = "error:" ++ missingParenError ++ missingParenFunctionSuggestion lhs p
+    opErrorMsg = "error:" ++ appliedToOperatorError
+    funcErrorMsg p = "error:" ++ missingParenError ++ missingParenFunctionSuggestion lhs p
 badMatchApps _ = []
 
 badPatternApps :: Pat SrcSpanInfo -> [Diagnostic]
-badPatternApps (PApp loc lhs pats) =
-    take 1 [(ann p, CompileError, warningMsg p) | p <- pats, not (isGoodPatAppRhs p)]
+badPatternApps (PApp loc lhs pats) = take 1 $
+    [(ann p, CompileError, opErrorMsg) | p <- pats, isParenthesizedOpPat p] ++
+    [(ann p, CompileError, funcErrorMsg p) | p <- pats, not (isGoodPatAppRhs p)]
   where
-    warningMsg p = "error:" ++ missingParenError ++ missingParenFunctionSuggestion lhs p
+    opErrorMsg = "error:" ++ appliedToOperatorError
+    funcErrorMsg p = "error:" ++ missingParenError ++ missingParenFunctionSuggestion lhs p
 badPatternApps _ = []
+
+appliedToOperatorError :: String
+appliedToOperatorError =
+    "\n    \x2022 The expression in this function argument is incomplete."
 
 missingParenError :: String
 missingParenError =
@@ -256,6 +297,8 @@ isGoodExpAppLhs (TypQuote _ _) = False
 isGoodExpAppLhs (Paren _ exp) = isGoodExpAppLhs exp
 isGoodExpAppLhs _ = True
 
+-- Determines whether the right-hand side of a function app expression is
+-- acceptable because it's surrounded by parentheses.
 isGoodExpAppRhs :: Exp l -> Bool
 isGoodExpAppRhs (Paren _ _) = True
 isGoodExpAppRhs (Tuple _ _ _) = True
@@ -274,12 +317,44 @@ isGoodExpAppRhs (ParArrayComp _ _ _) = True
 isGoodExpAppRhs (TupleSection _ _ _) = True
 isGoodExpAppRhs _ = False
 
+-- Determines whether the right-hand side of a function app pattern is
+-- acceptable because it's surrounded by parentheses.
 isGoodPatAppRhs :: Pat l -> Bool
 isGoodPatAppRhs (PParen _ _) = True
 isGoodPatAppRhs (PTuple _ _ _) = True
 isGoodPatAppRhs (PList _ _) = True
 isGoodPatAppRhs (PApp _ (Special _ (UnitCon _)) []) = True
 isGoodPatAppRhs _ = False
+
+-- Determines whether a function argument is a parenthesized symbol or
+-- section.  These look like they contain parentheses, but the contents of
+-- those parentheses aren't ordinary expressions.  To keep the grammar simple
+-- for students, these are forbidden without an extra layer of parentheses.
+-- This is a special case because the default error message is confusing.
+
+isParenthesizedOpExp :: Exp l -> Bool
+isParenthesizedOpExp (Var _ qname) = isOpQName qname
+isParenthesizedOpExp (Con _ qname) = isOpQName qname
+isParenthesizedOpExp (LeftSection _ _ _) = True
+isParenthesizedOpExp (RightSection _ _ _) = True
+isParenthesizedOpExp _ = False
+
+isParenthesizedOpPat :: Pat l -> Bool
+isParenthesizedOpPat (PVar _ n) = isOpName n
+isParenthesizedOpPat _ = False
+
+isOpQName :: QName l -> Bool
+isOpQName (Qual _ _ n) = isOpName n
+isOpQName (UnQual _ n) = isOpName n
+isOpQName (Special _ (FunCon _)) = True
+isOpQName (Special _ (TupleCon _ _ _)) = True
+isOpQName (Special _ (Cons _)) = True
+isOpQName (Special _ (UnboxedSingleCon _)) = True
+isOpQName _ = False
+
+isOpName :: Name l -> Bool
+isOpName (Symbol _ _) = True
+isOpName _ = False
 
 -- | Determines whether an expression is likely to be usable as a function
 -- by adding parenthesized arguments.  Note that when this would usually
@@ -370,3 +445,19 @@ extraCommas (TupleSection topLoc _ parts) =
         toLoc _ _ _ = Nothing
         file = srcSpanFilename (srcInfoSpan topLoc)
 extraCommas _ = []
+
+dedupErrorSpans :: [Diagnostic] -> [Diagnostic]
+dedupErrorSpans [] = []
+dedupErrorSpans [err] = [err]
+dedupErrorSpans ((loc1, sev1, msg1) : (loc2, sev2, msg2) : errs)
+  | loc1 `contains` loc2 = dedupErrorSpans ((loc1, sev1, msg1) : errs)
+  | otherwise = (loc1, sev1, msg1) : dedupErrorSpans ((loc2, sev2, msg2) : errs)
+  where
+    SrcSpanInfo {srcInfoSpan = span1} `contains` SrcSpanInfo {srcInfoSpan = span2} =
+        srcSpanFilename span1 == srcSpanFilename span2 &&
+        (srcSpanStartLine span1 < srcSpanStartLine span2 ||
+         (srcSpanStartLine span1 == srcSpanStartLine span2 &&
+          srcSpanStartColumn span1 <= srcSpanStartColumn span2)) &&
+        (srcSpanEndLine span1 > srcSpanEndLine span2 ||
+         (srcSpanEndLine span1 == srcSpanEndLine span2 &&
+          srcSpanEndColumn span1 >= srcSpanEndColumn span2))

@@ -35,26 +35,24 @@ async function init() {
     preloadBaseBundle();
     window.setInterval(preloadBaseBundle, 1000 * 60 * 60);
 
-    window.allProjectNames = [
-        []
-    ];
-    window.allFolderNames = [
-        []
-    ];
+    initDirectoryTree();
+
     window.openProjectName = null;
-    window.nestedDirs = [''];
 
     window.savedGeneration = null;
     window.runningGeneration = null;
 
     if (window.location.pathname === '/haskell') {
         window.buildMode = 'haskell';
+        window.projectEnv = 'haskell';
     }
     else if (window.location.pathname === '/rosy') {
         window.buildMode = 'rosy';
+        window.projectEnv = 'rosy';
     }
     else {
         window.buildMode = 'codeworld';
+        window.projectEnv = 'codeworld';
     }
     document.documentElement.classList.add(window.buildMode);
 
@@ -102,7 +100,7 @@ async function init() {
                             'Could not load the shared directory. Please try again.',
                             'error');
                     }
-                    discoverProjects('', 0);
+                    discoverProjects('');
                     updateUI();
                 });
             });
@@ -171,7 +169,7 @@ function initCodeworld() {
             'Ctrl-Up': changeFontSize(1),
             'Ctrl-Down': changeFontSize(-1)
         },
-        textHover: window.buildMode == 'codeworld' ? onHover : null,
+        textHover: window.buildMode === 'codeworld' ? onHover : null,
         gutters: ['CodeMirror-lint-markers'],
         lint: {
             getAnnotations: (text, callback) => {
@@ -312,7 +310,7 @@ function initCodeworld() {
             class: 'cw-toolbar-button mdi mdi-stop',
             label: '',
             title: 'Stop',
-            callback: cm => stop()
+            callback: cm => stopRun()
         },
         {
             class: 'cw-toolbar-button mdi mdi-play',
@@ -522,26 +520,6 @@ function getCurrentProject() {
     };
 }
 
-function folderHandler(folderName, index, state) {
-    warnIfUnsaved(() => {
-        window.nestedDirs = window.nestedDirs.slice(0, index + 1);
-        window.allProjectNames = window.allProjectNames.slice(0, index + 1);
-        window.allFolderNames = window.allFolderNames.slice(0, index + 1);
-        if (!state) {
-            window.nestedDirs.push(folderName);
-            window.allProjectNames.push([]);
-            window.allFolderNames.push([]);
-            discoverProjects(window.nestedDirs.slice(1).join('/'), index + 1);
-        }
-        if (!window.move) {
-            setCode('');
-            updateUI();
-        } else {
-            updateNavBar();
-        }
-    }, false);
-}
-
 /*
  * Updates all UI components to reflect the current state.  The general pattern
  * is to modify the state stored in variables and such, and then call updateUI
@@ -549,6 +527,7 @@ function folderHandler(folderName, index, state) {
  */
 function updateUI() {
     const isSignedIn = signedIn();
+    const selected = $('#directoryTree').tree('getSelectedNode');
     if (isSignedIn) {
         if (document.getElementById('signout').style.display === 'none') {
             document.getElementById('signin').style.display = 'none';
@@ -558,16 +537,24 @@ function updateUI() {
             window.mainLayout.open('west');
         }
 
-        if (window.openProjectName) {
-            document.getElementById('saveButton').style.display = '';
+        if (selected) {
             document.getElementById('deleteButton').style.display = '';
         } else {
+            document.getElementById('deleteButton').style.display = 'none';
+        }
+
+        if (selected && selected.type === 'project') {
+            document.getElementById('saveButton').style.display = '';
+            document.getElementById('downloadButton').style.display = '';
+            document.getElementById('shareFolderButton').style.display = 'none';
+        } else if (selected && selected.type === 'directory') {
             document.getElementById('saveButton').style.display = 'none';
-            if (window.nestedDirs !== '') {
-                document.getElementById('deleteButton').style.display = '';
-            } else {
-                document.getElementById('deleteButton').style.display = 'none';
-            }
+            document.getElementById('downloadButton').style.display = 'none';
+            document.getElementById('shareFolderButton').style.display = '';
+        } else {
+            document.getElementById('saveButton').style.display = 'none';
+            document.getElementById('shareFolderButton').style.display = 'none';
+            document.getElementById('downloadButton').style.display = 'none';
         }
     } else {
         if (document.getElementById('signout').style.display === '') {
@@ -578,6 +565,7 @@ function updateUI() {
         }
         document.getElementById('navButton').style.display = 'none';
         document.getElementById('deleteButton').style.display = 'none';
+        document.getElementById('shareFolderButton').style.display = 'none';
     }
 
     const debugAvailable = document.getElementById('runner').contentWindow.debugAvailable;
@@ -594,39 +582,9 @@ function updateUI() {
         document.getElementById('inspectButton').style.display = 'none';
     }
 
-    if (window.move) {
-        document.getElementById('newButton').style.display = 'none';
-        document.getElementById('saveButton').style.display = 'none';
-        document.getElementById('saveAsButton').style.display = 'none';
-        document.getElementById('deleteButton').style.display = 'none';
-        document.getElementById('downloadButton').style.display = 'none';
-        document.getElementById('moveButton').style.display = 'none';
-        document.getElementById('moveHereButton').style.display = '';
-        document.getElementById('cancelMoveButton').style.display = '';
-        document.getElementById('runButtons').style.display = 'none';
-        document.getElementById('shareFolderButton').style.display = 'none';
-    } else {
-        document.getElementById('newButton').style.display = '';
-        document.getElementById('saveAsButton').style.display = '';
-        document.getElementById('downloadButton').style.display = '';
-        document.getElementById('runButtons').style.display = '';
-        document.getElementById('moveHereButton').style.display = 'none';
-        document.getElementById('cancelMoveButton').style.display = 'none';
-
-        if (window.nestedDirs.length > 1 && !window.openProjectName) {
-            document.getElementById('shareFolderButton').style.display = '';
-        } else {
-            document.getElementById('shareFolderButton').style.display = 'none';
-        }
-
-        if (window.openProjectName || window.nestedDirs.length > 1) {
-            document.getElementById('moveButton').style.display = '';
-        } else {
-            document.getElementById('moveButton').style.display = 'none';
-        }
-    }
-
-    updateNavBar();
+    document.getElementById('newButton').style.display = '';
+    document.getElementById('saveAsButton').style.display = '';
+    document.getElementById('runButtons').style.display = '';
 
     let title;
     if (window.openProjectName) {
@@ -637,6 +595,15 @@ function updateUI() {
 
     if (!isEditorClean()) {
         title = `* ${title}`;
+        const selected = $('#directoryTree').tree('getSelectedNode');
+        if (selected && selected.type === 'project') {
+            const asterisk = selected.element.getElementsByClassName('unsaved-changes')[0];
+            if (asterisk) {
+                asterisk.style.display = '';
+            }
+        }
+    } else {
+        $('.unsaved-changes').css('display', 'none');
     }
 
     // If true - code currently in document is not equal to
@@ -655,151 +622,6 @@ function updateUI() {
     }
 
     document.title = `${title} - CodeWorld`;
-}
-
-function updateNavBar() {
-    window.allProjectNames.forEach(projectNames => {
-        projectNames.sort((a, b) => a.localeCompare(b));
-    });
-
-    window.allFolderNames.forEach(folderNames => {
-        folderNames.sort((a, b) => a.localeCompare(b));
-    });
-
-    const makeDirNode = (name, isOpen, level) => {
-        const encodedName = name
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
-        const templateName = isOpen ? 'openFolderTemplate' : 'folderTemplate';
-        let template = document.getElementById(templateName).innerHTML;
-        template = template.replace(/{{label}}/g, encodedName);
-        const span = document.createElement('span');
-        span.innerHTML = template;
-        const elem = span.getElementsByTagName('a')[0];
-        elem.style.marginLeft = `${3 + 16 * level}px`;
-        elem.onclick = () => {
-            folderHandler(name, level, isOpen);
-        };
-        span.style.display = 'flex';
-        span.style.flexDirection = 'column';
-
-        return span;
-    };
-
-    const makeProjectNode = (name, level, active) => {
-        let title = name;
-        if (active && !isEditorClean()) {
-            title = `* ${title}`;
-        }
-        const encodedName = title
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
-        let template = document.getElementById('projectTemplate').innerHTML;
-        template = template.replace(/{{label}}/g, encodedName);
-        template = template.replace(/{{ifactive ([^}]*)}}/g, active ? '$1' :
-            '');
-        const span = document.createElement('span');
-        span.innerHTML = template;
-        const elem = span.getElementsByTagName('a')[0];
-        elem.style.marginLeft = `${3 + 16 * level}px`;
-        elem.onclick = () => {
-            loadProject(name, level);
-        };
-        span.style.display = 'flex';
-        span.style.flexDirection = 'column';
-        return span;
-    };
-
-    let projects = document.getElementById('nav_mine');
-
-    while (projects.lastChild) {
-        projects.removeChild(projects.lastChild);
-    }
-
-    for (let i = 0; i < window.nestedDirs.length; i++) {
-        let nextProjects = null;
-        window.allFolderNames[i].forEach(folderName => {
-            const active = i + 1 < window.nestedDirs.length && window.nestedDirs[i + 1] === folderName;
-            if (!signedIn() && !active) {
-                return;
-            }
-            const span = makeDirNode(folderName, active, i);
-            projects.appendChild(span);
-            if (active) {
-                nextProjects = span.appendChild(document.createElement(
-                    'div'));
-            }
-        });
-        window.allProjectNames[i].forEach(projectName => {
-            const active = i + 1 === window.nestedDirs.length && window.openProjectName === projectName;
-            if (!signedIn() && !active) {
-                return;
-            }
-            const span = makeProjectNode(projectName, i, active);
-            projects.appendChild(span);
-        });
-        if (nextProjects) projects = nextProjects;
-    }
-
-    if (projects && window.loadingDir) {
-        const template = document.getElementById('loaderTemplate').innerHTML;
-        const span = document.createElement('span');
-        span.innerHTML = template;
-        const elem = span.getElementsByTagName('a')[0];
-        elem.style.marginLeft = `${3 + 16 * (window.nestedDirs.length - 1)}px`;
-        span.style.display = 'flex';
-        span.style.flexDirection = 'column';
-        projects.appendChild(span);
-    }
-}
-
-function moveProject() {
-    warnIfUnsaved(() => {
-        if (!signedIn()) {
-            sweetAlert('Oops!',
-                'You must sign in to move this project or folder.',
-                'error');
-            updateUI();
-            return;
-        }
-
-        if (!window.openProjectName && window.nestedDirs.length === 1) {
-            sweetAlert('Oops!',
-                'You must select a project or folder to move.',
-                'error');
-            updateUI();
-            return;
-        }
-
-        const tempOpen = window.openProjectName;
-        const tempPath = window.nestedDirs.slice(1).join('/');
-        setCode('');
-        if (!tempOpen) {
-            window.nestedDirs.splice(-1);
-            window.allProjectNames.splice(-1);
-            window.allFolderNames.splice(-1);
-        }
-
-        window.move = Object();
-        window.move.path = tempPath;
-        if (tempOpen) {
-            window.move.file = tempOpen;
-        }
-
-        discoverProjects('', 0);
-        updateNavBar();
-    }, false);
-}
-
-function moveHere() {
-    moveHere_(window.nestedDirs.slice(1).join('/'), window.buildMode, () => {
-        window.nestedDirs = [''];
-        discoverProjects('', 0);
-        cancelMove();
-        updateUI();
-    });
 }
 
 function toggleTheme() {
@@ -831,7 +653,7 @@ function changeFontSize(incr) {
 function help() {
     let url = `doc.html?shelf=help/${window.buildMode}.shelf`;
     let customClass = 'helpdoc';
-    
+
     if (window.localStorage.getItem('darkMode') === 'true') {
         url += '&theme=dark-theme';
         customClass += ' dark-theme';
@@ -879,7 +701,7 @@ function setCode(code, history, name, autostart) {
     if (autostart) {
         compile();
     } else {
-        stop();
+        stopRun();
     }
 }
 
@@ -887,29 +709,23 @@ function loadSample(code) {
     if (isEditorClean()) sweetAlert.close();
     warnIfUnsaved(() => {
         setCode(code);
-    }, false);
+    });
 }
 
 function newProject() {
     warnIfUnsaved(() => {
         setCode('');
-    }, false);
-}
-
-function newFolder() {
-    createFolder(window.nestedDirs.slice(1).join('/'), window.buildMode, () => {
-        if (!window.move) {
-            setCode('');
-        }
     });
 }
 
-function loadProject(name, index) {
-    if (window.move) {
-        return;
-    }
+function newFolder() {
+    createFolder(getNearestDirectory(), window.buildMode, () => {
+        setCode('');
+    });
+}
 
-    loadProject_(index, name, window.buildMode, project => {
+function loadProject(name, path) {
+    loadProject_(path, name, window.buildMode, project => {
         setCode(project.source, project.history, name);
     });
 }
@@ -932,7 +748,7 @@ function formatSource() {
     });
 }
 
-function stop() {
+function stopRun() {
     if (document.getElementById('runner').contentWindow.debugActive) {
         document.getElementById('runner').contentWindow.stopDebugMode();
     }
@@ -974,7 +790,6 @@ function run(hash, dhash, msg, error, generation) {
     }
 
     if (hash || msg) {
-        cancelMove();
         window.mainLayout.show('east');
         window.mainLayout.open('east');
         document.getElementById('shareFolderButton').style.display = 'none';
@@ -1081,7 +896,7 @@ function goto(line, col) {
 }
 
 function compile() {
-    stop();
+    stopRun();
 
     const src = window.codeworldEditor.getValue();
     const compileGeneration = window.codeworldEditor.getDoc().changeGeneration(
@@ -1122,22 +937,29 @@ function compile() {
 
         const success = request.status === 200;
 
-        let hash;
-        let dhash;
-        if (request.responseText.length === 23) {
-            hash = request.responseText;
-            dhash = null;
-        } else {
-            try {
-                const obj = JSON.parse(request.responseText);
-                hash = obj.hash;
-                dhash = obj.dhash;
-            } catch (e) {
-                run('', '',
-                    'Sorry!  Your program couldn\'t be run right now.',
-                    true, null);
-                return;
+        let hash, dhash;
+        if (request.status < 500) {
+            if (request.responseText.length === 23) {
+                hash = request.responseText;
+                dhash = null;
+            } else {
+                try {
+                    const obj = JSON.parse(request.responseText);
+                    hash = obj.hash;
+                    dhash = obj.dhash;
+                } catch (e) {
+                    hash = '';
+                }
             }
+        }
+
+        if (!hash) {
+            sweetAlert({
+                title: Alert.title('Could not compile'),
+                text: 'The compiler is unavailable.  Please try again later.',
+                type: 'error'
+            });
+            return;
         }
 
         const data = new FormData();
@@ -1167,37 +989,43 @@ function compile() {
 let isFirstSignin = true;
 
 function signinCallback(result) {
-    discoverProjects('', 0);
-    cancelMove();
-    updateUI();
+    discoverProjects('');
     if (isFirstSignin && !signedIn() && autohelpEnabled) {
         help();
     }
     isFirstSignin = false;
 }
 
-function discoverProjects(path, index) {
-    discoverProjects_(path, window.buildMode, index);
-}
-
-function saveProjectBase(path, projectName) {
-    saveProjectBase_(path, projectName, window.buildMode, () => {
-        window.openProjectName = projectName;
+function saveProject() {
+    function successFunc() {
+        const selected = $('#directoryTree').tree('getSelectedNode');
+        if (selected) {
+            window.openProjectName = selected.name;
+        }
         const doc = window.codeworldEditor.getDoc();
         window.savedGeneration = doc.changeGeneration(true);
         window.codeworldEditor.focus();
-    });
+    }
+    if (window.openProjectName) {
+        saveProjectBase(
+            getNearestDirectory(),
+            window.openProjectName,
+            window.projectEnv,
+            successFunc);
+    } else {
+        saveProjectAs();
+    }
 }
 
 function deleteFolder() {
-    const path = window.nestedDirs.slice(1).join('/');
+    const path = getNearestDirectory();
     if (path === '' || window.openProjectName) {
         return;
     }
 
-    deleteFolder_(path, window.buildMode, () => {
+    deleteFolder_(path, window.projectEnv, () => {
         window.savedGeneration = codeworldEditor.getDoc().changeGeneration(true);
-        setCode('');
+        clearWorkspace();
     });
 }
 
@@ -1207,8 +1035,8 @@ function deleteProject() {
         return;
     }
 
-    const path = window.nestedDirs.slice(1).join('/');
-    deleteProject_(path, window.buildMode, () => {
+    const path = getNearestDirectory();
+    deleteProject_(path, window.projectEnv, () => {
         window.savedGeneration = codeworldEditor.getDoc().changeGeneration(true);
         setCode('');
     });
@@ -1309,4 +1137,18 @@ function parseCompileErrors(rawErrors) {
         }
     });
     return errors;
+}
+
+function clearWorkspace() {
+    window.openProjectName = null;
+    // Deselect nodes
+    const treeState = $('#directoryTree').tree('getState');
+    treeState.selected_node = [];
+    $('#directoryTree').tree('setState', treeState);
+    setCode('');
+}
+
+function clearCode() {
+    window.openProjectName = null;
+    setCode('');
 }

@@ -63,7 +63,7 @@ formatDiagnostics diags =
 
 formatDiagnostic :: Diagnostic -> Text
 formatDiagnostic (loc, _, msg) =
-    T.pack (formatLocation loc ++ msg)
+    T.pack (formatLocation loc ++ ": " ++ msg)
 
 readUtf8 :: FilePath -> IO Text
 readUtf8 f = decodeUtf8 <$> B.readFile f
@@ -86,7 +86,8 @@ compileSource stage src err mode verbose = fromMaybe CompileAborted <$>
         compileStatus = CompileSuccess,
         compileErrors = [],
         compileReadSource = Nothing,
-        compileParsedSource = Nothing
+        compileParsedSource = Nothing,
+        compileGHCParsedSource = Nothing
         }
     timeout = case stage of
         GenBase _ _ _ _ -> maxBound :: Int
