@@ -124,12 +124,15 @@ compileCode = ifSucceeding $ withSystemTempDirectory "build" $ \tmpdir -> do
 
     ifSucceeding $ copyOutputFrom (tmpdir </> "program.jsexe")
 
+preprocess :: SourceMode -> FilePath -> FilePath -> IO ()
+preprocess "rosy" from to = callProcess "rosypp" ["preprocessor",from,to]
+preprocess mode from to = copyFile from to
+
 prepareCompile :: MonadCompile m => FilePath -> m [String]
 prepareCompile dir = do
     src <- gets compileSourcePath
-    liftIO $ copyFile src (dir </> "program.hs")
-
     mode <- gets compileMode
+    liftIO $ preprocess mode src (dir </> "program.hs")
     stage <- gets compileStage
     linkArgs <- case stage of
         ErrorCheck -> return ["-fno-code"]
@@ -217,7 +220,7 @@ buildArgs "rosy" =
     , "QuickCheck"
     , "-XDeriveGeneric"
     , "-XStandaloneDeriving"
-    , "-F -pgmFrosy"
+--    , "-F -pgmFrosy"
     ]
 
 runCompiler :: FilePath -> Int -> [String] -> Bool -> IO (ExitCode, Text)

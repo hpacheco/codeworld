@@ -4,7 +4,9 @@ cwd=$(pwd)
 
 source base.sh
 
-run . git submodule update --recursive --remote
+run . cabal install rosy/prepro/
+
+#run . git submodule update --recursive --remote
 #run roshask/ git pull
 #run roshask/  git submodule update --recursive --remote
 #run gloss-window/ git pull
