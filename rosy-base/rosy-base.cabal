@@ -14,6 +14,6 @@ Description:
 Library
   Hs-source-dirs:      .
   Exposed-modules:     Prelude
-  Build-depends:       base,
+  Build-depends:       base, data-default-generics, 
                        rosy
   Exposed:             False

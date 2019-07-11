@@ -4,6 +4,7 @@
   "named": {
     "Robot programming":   "doc-rosy/Rosy.html",
     "General programming": "doc-base/Prelude.html",
+    "Examples":            "help/examples-rosy.md",
     "Environment":         "help/GuideIntro.md",
     "Editor":              "help/editor-haskell.md"
   }

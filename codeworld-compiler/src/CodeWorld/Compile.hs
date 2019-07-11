@@ -215,6 +215,9 @@ buildArgs "rosy" =
     , "codeworld-api"
     , "-package"
     , "QuickCheck"
+    , "-XDeriveGeneric"
+    , "-XStandaloneDeriving"
+    , "-F -pgmFrosy"
     ]
 
 runCompiler :: FilePath -> Int -> [String] -> Bool -> IO (ExitCode, Text)
