@@ -124,15 +124,18 @@ compileCode = ifSucceeding $ withSystemTempDirectory "build" $ \tmpdir -> do
 
     ifSucceeding $ copyOutputFrom (tmpdir </> "program.jsexe")
 
-preprocess :: SourceMode -> FilePath -> FilePath -> IO ()
-preprocess "rosy" from to = callProcess "rosypp" ["preprocessor",from,to]
-preprocess mode from to = copyFile from to
+preprocess :: MonadCompile m => SourceMode -> FilePath -> FilePath -> m ()
+preprocess "rosy" from to = do
+  (exitCode,output) <- liftIO $ runSync "." "rosypp" [to,from,to]
+  when (exitCode /= ExitSuccess) failCompile
+  addParsedDiagnostics output
+preprocess mode from to = liftIO $ copyFile from to
 
 prepareCompile :: MonadCompile m => FilePath -> m [String]
 prepareCompile dir = do
     src <- gets compileSourcePath
     mode <- gets compileMode
-    liftIO $ preprocess mode src (dir </> "program.hs")
+    preprocess mode src (dir </> "program.hs")
     stage <- gets compileStage
     linkArgs <- case stage of
         ErrorCheck -> return ["-fno-code"]

@@ -31,4 +31,4 @@ run . codeworld-server-migrate
 mkdir -p log
 
 codeworld-game-server +RTS -T &
-run .  codeworld-server -p 80 --no-access-log
+run .  codeworld-server -p 80 --no-access-log --verbose

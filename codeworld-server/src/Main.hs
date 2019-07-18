@@ -370,16 +370,23 @@ compileHandler :: CodeWorldHandler
 compileHandler = public $ \ctx -> do
     mode <- getBuildMode
     Just source <- getParam "source"
+    mbparent <- getParam "parent"
     let programId = sourceToProgramId source
         deployId = sourceToDeployId source
     status <- liftIO $ withProgramLock mode programId $ do
         ensureSourceDir mode programId
         B.writeFile (sourceRootDir mode </> sourceFile programId) source
+        case mbparent of
+            Just parent -> do
+                let parentId = sourceToProgramId parent
+                T.writeFile (sourceRootDir mode </> sourceBase programId <.> ".parent") (unProgramId parentId)
+            Nothing -> return ()
         writeDeployLink mode deployId programId
         compileIfNeeded ctx mode programId
     modifyResponse $ setResponseCode (responseCodeFromCompileStatus status)
     modifyResponse $ setContentType "text/plain"
     let result = CompileResult (unProgramId programId) (unDeployId deployId)
+    liftIO $ writeFile (sourceRootDir mode </> sourceBase programId <.> "status") (show status)
     writeLBS (encode result)
 
 errorCheckHandler :: CodeWorldHandler

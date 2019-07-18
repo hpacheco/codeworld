@@ -895,6 +895,9 @@ function goto(line, col) {
     codeworldEditor.focus();
 }
 
+// hpacheco: remember the parent source, to build a history graph
+var parent = null;
+
 function compile() {
     stopRun();
 
@@ -904,7 +907,9 @@ function compile() {
 
     const data = new FormData();
     data.append('source', src);
+    if (parent != null && parent !== src) data.append('parent',parent);
     data.append('mode', window.buildMode);
+    parent = src;
 
     let compileFinished = false;
 
