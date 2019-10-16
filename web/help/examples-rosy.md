@@ -79,7 +79,7 @@ blink (Memory On) = (Led1 Red,Memory Off)
 main = simulate blink
 ~~~~~
 
-Example: Simple Random walker
+Example: Simple Random Walker
 =====================
 
 This example demonstrates how to implement a simple random walker, that makes your robot walk forward, and change course when it finds an obstacle.
@@ -106,7 +106,7 @@ randomWalk = (emergency,mode,walk)
 main = simulate randomWalk
 ~~~~~
 
-Example: Kobuki Random walker
+Example: Kobuki Random Walker
 =====================
 
 This example demonstrates how to replicate a Kobuki random walker, with blinking leds and randomized behavior.
@@ -148,7 +148,7 @@ randomWalk = (bumper,cliff,wheel,chgdir,spin)
 main = simulate randomWalk
 ~~~~~
 
-Example: Kobuki Random walker with Safety Controller
+Example: Kobuki Random Walker with Safety Controller
 =====================
 
 This example demonstrates how to encode a multiplexer, in order to combine the Kobuki random walker and the Kobuki safety controller.
@@ -222,4 +222,117 @@ safeRandomWalk = (randomWalk,safetyControl,muxVel)
 
 main = simulate safeRandomWalk
 ~~~~~
+
+Example: Task - Turn left or right by a number of degrees
+=====================
+
+This example demonstrates how to implement a simple task that makes the robot rotate to the left or to the right.
+
+~~~~~ . clickable
+type Side = Either Degrees Degrees
+
+turn :: Side -> Task ()
+turn s = task (startTurn s) runTurn
+
+startTurn :: Side -> Orientation -> Memory Orientation
+startTurn (Left a)  o = Memory (o+degreesToOrientation a)
+startTurn (Right a) o = Memory (o-degreesToOrientation a)
+
+errTurn = 0.01
+
+runTurn :: Memory Orientation -> Orientation
+        -> Either (Velocity) (Done ())
+runTurn (Memory to) from = if abs d <= errTurn
+    then Right (Done ())
+    else Left (Velocity 0 (orientation d))
+  where d = normOrientation (to-from)
+    
+main = simulateTask (turn $ Left 90)
+~~~~~
+
+Example: Task - Move forward or backward for a number of centimeters
+=====================
+
+This example demonstrates how to implement a simple task that makes the robot move forward or backward.
+
+~~~~~ . clickable
+data Direction = Forward Centimeters | Backward Centimeters
+
+move :: Direction -> Task ()
+move d = task (startMove d) runMove
+
+startMove :: Direction -> Position -> Memory Position
+startMove (Forward cm) p = Memory $ vecToPosition $ extVec (positionToVec p) $ centimetersToMeters cm
+startMove (Backward cm) p = Memory $ vecToPosition $ extVec (positionToVec p) $ centimetersToMeters (-cm)
+
+errMove = 0.1
+
+runMove :: Memory Position -> Position -> Either Velocity (Done ())
+runMove (Memory to) from = if abs dist <= errMove
+    then Right (Done ())
+    else Left (Velocity dist 0)
+  where dist = magnitudeVec (subVec (positionToVec to) (positionToVec from))
+
+main = simulateTaskIn world2 (move $ Forward 2)
+~~~~~
+
+Example: Task - Draw a square
+=====================
+
+This example demonstrates how to make the robot draw a square with his movement.
+
+~~~~~ . clickable
+-- turn left/right
+
+type Side = Either Degrees Degrees
+
+turn :: Side -> Task ()
+turn s = task (startTurn s) runTurn
+
+startTurn :: Side -> Orientation -> Memory Orientation
+startTurn (Left a)  o = Memory (o+degreesToOrientation a)
+startTurn (Right a) o = Memory (o-degreesToOrientation a)
+
+errTurn = 0.01
+
+runTurn :: Memory Orientation -> Orientation
+        -> Either (Velocity) (Done ())
+runTurn (Memory to) from = if abs d <= errTurn
+    then Right (Done ())
+    else Left (Velocity 0 (orientation d))
+  where d = normOrientation (to-from)
+
+-- task move
+
+data Direction = Forward Centimeters | Backward Centimeters
+
+move :: Direction -> Task ()
+move d = task (startMove d) runMove
+
+startMove :: Direction -> Orientation -> Position -> Memory Position
+startMove d (Orientation angle) p = Memory $ vecToPosition $ addVec (positionToVec p) $ scalarVec (magnitude d) angle
+    where
+    magnitude (Forward cm) = centimetersToMeters cm
+    magnitude (Backward cm) = - centimetersToMeters cm
+
+errMove = 0.01
+
+runMove :: Memory Position -> Position -> Either Velocity (Done ())
+runMove (Memory to) from = if abs dist <= errMove
+    then Right (Done ())
+    else Left (Velocity dist 0)
+  where dist = magnitudeVec (subVec (positionToVec to) (positionToVec from))
+
+mainM = simulateTaskIn world2 (move $ Forward 32)
+
+-- draw square
+
+drawSquare :: Task ()
+drawSquare = replicateM_ 4 $ do
+    move (Forward 32)
+    turn (Left 90)
+    
+main = simulateTaskIn world2 drawSquare
+~~~~~
+
 
