@@ -295,8 +295,7 @@ startTurn (Right a) o = Memory (o-degreesToOrientation a)
 
 errTurn = 0.01
 
-runTurn :: Memory Orientation -> Orientation
-        -> Either (Velocity) (Done ())
+runTurn :: Memory Orientation -> Orientation -> Either (Velocity) (Done ())
 runTurn (Memory to) from = if abs d <= errTurn
     then Right (Done ())
     else Left (Velocity 0 (orientation d))
