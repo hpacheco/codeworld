@@ -79,7 +79,7 @@ blink (Memory On) = (Led1 Red,Memory Off)
 main = simulate blink
 ~~~~~
 
-Example: Random walker
+Example: Simple Random walker
 =====================
 
 This example demonstrates how to implement a simple random walker, that makes your robot walk forward, and change course when it finds an obstacle.
@@ -130,6 +130,50 @@ wheel (Wheel _ st) = case st of
   Air -> (Led1 Red,Led2 Red,Memory Stop)
   Ground -> (Led1 Black,Led2 Black,Memory Go)
 
+chgdir :: ChgDir -> StdGen -> Seconds -> Memory Mode
+chgdir _ r now = Memory (Turn dir time)
+    where
+    (b,r') = random r
+    (ang,_) = randomR (0,pi) r'
+    dir = if b then 1 else -1
+    time = now + doubleToSeconds (ang / 0.1)
+
+spin :: Memory Mode -> Seconds -> (Velocity,Memory Mode)
+spin m@(Memory Stop) _ = (Velocity 0 0,m)
+spin m@(Memory (Turn dir t)) now | t > now = (Velocity 0 (dir*0.1),m)
+spin m _ = (Velocity 0.5 0,Memory Go)
+
+randomWalk = (bumper,cliff,wheel,chgdir,spin)
+
+main = simulate randomWalk
+~~~~~
+
+Example: Kobuki Random walker with Safety Controller
+=====================
+
+This example demonstrates how to encode a multiplexer, in order to combine the Kobuki random walker and the Kobuki safety controller.
+
+~~~~~ . clickable
+-- random walker
+
+data Mode = Go | Stop | Turn Double Seconds
+data ChgDir = ChgDir -- change direction
+
+bumper :: Bumper -> (Led1,Maybe ChgDir)
+bumper (Bumper _ st) = case st of
+  Pressed -> (Led1 Orange,Just ChgDir)
+  Released -> (Led1 Black,Nothing)
+
+cliff :: Cliff -> (Led2,Maybe ChgDir)
+cliff (Cliff _ st) = case st of
+  Hole -> (Led2 Orange,Just ChgDir)
+  Floor -> (Led2 Black,Nothing)
+
+wheel :: Wheel -> (Led1,Led2,Memory Mode)
+wheel (Wheel _ st) = case st of
+  Air -> (Led1 Red,Led2 Red,Memory Stop)
+  Ground -> (Led1 Black,Led2 Black,Memory Go)
+
 chgdir :: ChgDir -> StdGen -> Seconds
        -> Memory Mode
 chgdir _ r now = Memory (Turn dir time)
@@ -139,15 +183,43 @@ chgdir _ r now = Memory (Turn dir time)
     dir = if b then 1 else -1
     time = now + doubleToSeconds (ang / 0.1)
 
-spin :: Memory Mode -> Seconds
-     -> (Velocity,Memory Mode)
-spin m@(Memory Stop) _ = (Velocity 0 0,m)
-spin m@(Memory (Turn dir t)) now | t > now =
-  (Velocity 0 (dir*0.1),m)
-spin m _ = (Velocity 0.5 0,Memory Go)
+spin :: Memory Mode -> Seconds -> (M2 Velocity,Memory Mode)
+spin m@(Memory Stop) _ = (M2 (Velocity 0 0),m)
+spin m@(Memory (Turn dir t)) now | t > now = (M2 (Velocity 0 (dir*0.1)),m)
+spin m _ = (M2 (Velocity 0.5 0),Memory Go)
 
 randomWalk = (bumper,cliff,wheel,chgdir,spin)
 
-main = simulate randomWalk
+-- safety controller
+
+safetyControl :: Either (Either Bumper Cliff) Wheel -> Maybe (M1 Velocity)
+safetyControl (Right (Wheel _ Air)) = Just $ M1 $ Velocity 0 0
+safetyControl (Left (Left (Bumper CenterBumper Pressed))) = Just $ M1 $ Velocity (-0.1) 0
+safetyControl (Left (Right (Cliff CenterCliff Hole))) = Just $ M1 $ Velocity (-0.1) 0
+safetyControl (Left (Left (Bumper LeftBumper Pressed))) = Just $ M1 $ Velocity (-0.1) (-0.4)
+safetyControl (Left (Right (Cliff LeftCliff Hole))) = Just $ M1 $ Velocity (-0.1) (-0.4)
+safetyControl (Left (Left (Bumper RightBumper Pressed))) = Just $ M1 $ Velocity (-0.1) 0.4
+safetyControl (Left (Right (Cliff RightCliff Hole))) = Just $ M1 $ Velocity (-0.1) 0.4
+safetyControl _ = Nothing
+
+-- multiplexer
+
+data M = Start | Ignore Seconds
+data M1 a = M1 a
+data M2 b = M2 b
+
+timeout = 0.5
+
+muxVel :: Seconds -> Memory M
+    -> Either (M1 Velocity) (M2 Velocity) -> Maybe (Velocity,Memory M)
+muxVel t _ (Left (M1 a)) = Just (a,Memory (Ignore (t+timeout)))
+muxVel t (Memory (Ignore s)) (Right (M2 a)) | s > t = Nothing
+muxVel t _ (Right (M2 a)) = Just (a,Memory Start)
+
+-- safe random walker
+    
+safeRandomWalk = (randomWalk,safetyControl,muxVel)
+
+main = simulate safeRandomWalk
 ~~~~~
 
