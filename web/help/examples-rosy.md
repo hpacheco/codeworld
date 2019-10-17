@@ -273,7 +273,7 @@ runMove (Memory to) from = if abs dist <= errMove
     else Left (Velocity dist 0)
   where dist = magnitudeVec (subVec (positionToVec to) (positionToVec from))
 
-main = simulateTaskIn world2 (move $ Forward 2)
+main = simulateTaskIn world2 (move $ Forward 32)
 ~~~~~
 
 Example: Task - Draw a square
@@ -282,6 +282,8 @@ Example: Task - Draw a square
 This example demonstrates how to make the robot draw a square with his movement.
 
 ~~~~~ . clickable
+import Control.Monad
+
 -- turn left/right
 
 type Side = Either Degrees Degrees
