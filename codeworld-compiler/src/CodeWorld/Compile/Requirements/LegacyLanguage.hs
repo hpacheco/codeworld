@@ -144,7 +144,7 @@ isLegacyFormat txt =
 parseLegacyRequirement :: Int -> Int -> Text -> Either String Requirement
 parseLegacyRequirement ln col txt =
     either (Left . errorBundlePretty) Right $
-        snd $ runParser' legacyRequirementParser initialState
+        snd $ runParser' legacyRequirementParser (initialState [])
   where str = T.unpack txt
         initialState = State str 0 posState
         posState = PosState str 0 srcPos (mkPos 8) (replicate (col - 1) ' ')

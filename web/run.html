@@ -17,6 +17,15 @@
     <audio id="sound5" src="sounds/cleaningstart.wav"></audio>
     <audio id="sound6" src="sounds/cleaningend.wav"></audio>
     <canvas id="screen"></canvas>
+    <img style="visibility: hidden;" id="box-turtle" src="images/box-turtle.png">
+    <img style="visibility: hidden;" id="diamondback" src="images/diamondback.png">
+    <img style="visibility: hidden;" id="electric" src="images/electric.png">
+    <img style="visibility: hidden;" id="fuerte" src="images/fuerte.png">
+    <img style="visibility: hidden;" id="groovy" src="images/groovy.png">
+    <img style="visibility: hidden;" id="hydro" src="images/hydro.png">
+    <img style="visibility: hidden;" id="indigo" src="images/indigo.png">
+    <img style="visibility: hidden;" id="robot-turtle" src="images/robot-turtle.png">
+    <img style="visibility: hidden;" id="sea-turtle" src="images/sea-turtle.png">
 </body>
 <script type="text/javascript" src="js/run.js"></script>
 <script type="text/javascript">
@@ -41,7 +50,7 @@
     let mode = params['mode'];
     // Game id is just dumped in the global JS namespace and read there by gameOf
     let gid = params['gid'];
-    if (!mode) mode = 'codeworld';
+    if (!mode) mode = 'rosy';
 
     let query = '?mode=' + mode;
     if (hash) query += '&hash=' + hash;

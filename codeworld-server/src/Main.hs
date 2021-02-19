@@ -135,12 +135,12 @@ processBody = do
 #endif
 
 getBuildMode :: Snap BuildMode
-getBuildMode =
-    getParam "mode" >>= \case
-        Just "haskell" -> return (BuildMode "haskell")
-        Just "blocklyXML" -> return (BuildMode "blocklyXML")
-        Just "rosy" -> return (BuildMode "rosy")
-        _ -> return (BuildMode "codeworld")
+getBuildMode = getParam "mode" >>= \case
+    Just "haskell" -> return (BuildMode "haskell")
+    Just "blocklyXML" -> return (BuildMode "blocklyXML")
+    Just "rosy" -> return (BuildMode "rosy")
+    Just "codeworld" -> return (BuildMode "codeworld")
+    _ -> return (BuildMode "rosy")
 
 site :: CodeWorldHandler
 site ctx =
@@ -166,11 +166,13 @@ site ctx =
             , ("runMsg", runMessageHandler ctx)
             , ("haskell", serveFile "web/env.html")
             , ("rosy", serveFile "web/rosy.html")
+            , ("codeworld",serveFile "web/codeworld.html")
             , ("blocks", serveFile "web/blocks.html")
             , ("funblocks", serveFile "web/blocks.html")
             , ("indent", indentHandler ctx)
             , ("gallery/:shareHash", galleryHandler ctx)
             , ("log", logHandler ctx)
+         --   , ("",serveFile "web/rosy.html")
             ]
             ++ authRoutes (authConfig ctx)
     in route routes <|> serveDirectory "web"

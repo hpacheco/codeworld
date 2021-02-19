@@ -24,7 +24,7 @@ run .  cabal update
 #
 # -f-quickcheck disables QuickCheck support in these, which
 # prevents a reinstall of QuickCheck from also causing Reflex
-# to rebuild.  Switching to cabal v2-install would fix issues
+# to rebuild.  Switching to cabal install would fix issues
 # like this.
 run .  cabal_install -f-quickcheck --ghcjs \
                              ./codeworld-prediction \
@@ -35,16 +35,16 @@ run .  cabal_install -f-quickcheck --ghcjs \
                              QuickCheck
 
 run codeworld-base  cabal configure --ghcjs
-run codeworld-base  cabal haddock --html
-run codeworld-base  cabal haddock --hoogle
+run codeworld-base  cabal haddock --haddock-html
+run codeworld-base  cabal haddock --haddock-hoogle
 
 # Work-around for haddock dropping pattern synonyms in hoogle output.
 grep -r -s -h 'pattern\s*[A-Za-z_0-9]*\s*::.*' codeworld-base/ \
     >> web/codeworld-base.txt
 
 run codeworld-api   cabal configure --ghcjs
-run codeworld-api   cabal haddock --html
-run codeworld-api   cabal haddock --hoogle
+run codeworld-api   cabal haddock --haddock-html
+run codeworld-api   cabal haddock --haddock-hoogle
 
 # Build codeworld-server from this project.
 

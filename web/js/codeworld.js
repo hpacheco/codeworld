@@ -50,9 +50,13 @@ async function init() {
         window.buildMode = 'rosy';
         window.projectEnv = 'rosy';
     }
-    else {
+    else if (window.location.pathname === '/codeworld') {
         window.buildMode = 'codeworld';
         window.projectEnv = 'codeworld';
+    }
+    else {
+        window.buildMode = 'rosy';
+        window.projectEnv = 'rosy';
     }
     document.documentElement.classList.add(window.buildMode);
 

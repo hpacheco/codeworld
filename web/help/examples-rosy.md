@@ -10,7 +10,7 @@ This example makes a robot move forward at a constant velocity of 0.5 m/s.
 move :: Velocity
 move = Velocity 0.5 0
 
-main = simulate move
+main = simulate (Kobuki Nothing) move
 ~~~~~
 
 Example: Accelerate forward
@@ -22,7 +22,7 @@ This example makes a robot accelerate forward with non-constant velocity.
 accelerate :: Velocity -> Velocity
 accelerate (Velocity vl va) = Velocity (vl+0.5) va
 
-main = simulate accelerate
+main = simulate (Kobuki Nothing) accelerate
 ~~~~~
 
 Example: Accelerate forward and play a sound on collision
@@ -40,7 +40,7 @@ play (Bumper _ Released) = Nothing
 
 accelerateAndPlay = (accelerate,play)
 
-main = simulate accelerateAndPlay
+main = simulate (Kobuki Nothing) accelerateAndPlay
 ~~~~~
 
 Example: Accelerate forward and backwards
@@ -61,7 +61,7 @@ accelerate (Memory hit) (Velocity vl va) = if hit
     
 forwardBackward = (reverseDir,accelerate)
 
-main = simulate forwardBackward
+main = simulate (Kobuki Nothing) forwardBackward
 ~~~~~
 
 Example: Blinking led
@@ -70,13 +70,13 @@ Example: Blinking led
 This example demonstrates how you can give your robot memory, and how to use that to make a led blink, alternating between two colors.
 
 ~~~~~ . clickable
-data Blink = Off | On
+data Blink = BOff | BOn
 
 blink :: Memory Blink -> (Led1,Memory Blink)
-blink (Memory Off) = (Led1 Black,Memory On)
-blink (Memory On) = (Led1 Red,Memory Off)
+blink (Memory BOff) = (Led1 Black,Memory BOn)
+blink (Memory BOn) = (Led1 Red,Memory BOff)
 
-main = simulate blink
+main = simulate (Kobuki Nothing) blink
 ~~~~~
 
 Example: Simple Random Walker
@@ -103,7 +103,7 @@ walk (Orientation o) (Memory (Panic _)) = Velocity 0 (pi/8)
 
 randomWalk = (emergency,mode,walk)
 
-main = simulate randomWalk
+main = simulate (Kobuki Nothing) randomWalk
 ~~~~~
 
 Example: Kobuki Random Walker
@@ -145,7 +145,7 @@ spin m _ = (Velocity 0.5 0,Memory Go)
 
 randomWalk = (bumper,cliff,wheel,chgdir,spin)
 
-main = simulate randomWalk
+main = simulate (Kobuki Nothing) randomWalk
 ~~~~~
 
 Example: Kobuki Random Walker with Safety Controller
@@ -220,7 +220,7 @@ muxVel t _ (Right (M2 a)) = Just (a,Memory Start)
     
 safeRandomWalk = (randomWalk,safetyControl,muxVel)
 
-main = simulate safeRandomWalk
+main = simulate (Kobuki Nothing) safeRandomWalk
 ~~~~~
 
 Example: Task - Turn left or right by a number of degrees
@@ -231,7 +231,7 @@ This example demonstrates how to implement a simple task that makes the robot ro
 ~~~~~ . clickable
 type Side = Either Degrees Degrees
 
-turn :: Side -> Task ()
+turn :: Side -> Task _ ()
 turn s = task (startTurn s) runTurn
 
 startTurn :: Side -> Orientation -> Memory Orientation
@@ -247,7 +247,7 @@ runTurn (Memory to) from = if abs d <= errTurn
     else Left (Velocity 0 (orientation d))
   where d = normOrientation (to-from)
     
-main = simulateTask (turn $ Left 90)
+main = simulate (Kobuki Nothing) (turn $ Left 90)
 ~~~~~
 
 Example: Task - Move forward or backward for a number of centimeters
@@ -258,7 +258,7 @@ This example demonstrates how to implement a simple task that makes the robot mo
 ~~~~~ . clickable
 data Direction = Forward Centimeters | Backward Centimeters
 
-move :: Direction -> Task ()
+move :: Direction -> Task _ ()
 move d = task (startMove d) runMove
 
 startMove :: Direction -> Position -> Memory Position
@@ -273,7 +273,7 @@ runMove (Memory to) from = if abs dist <= errMove
     else Left (Velocity dist 0)
   where dist = magnitudeVec (subVec (positionToVec to) (positionToVec from))
 
-main = simulateTaskIn world2 (move $ Forward 32)
+main = simulate (Kobuki $ Just world2) (move $ Forward 32)
 ~~~~~
 
 Example: Task - Draw a square
@@ -282,13 +282,12 @@ Example: Task - Draw a square
 This example demonstrates how to make the robot draw a square with his movement.
 
 ~~~~~ . clickable
-import Control.Monad
 
 -- turn left/right
 
 type Side = Either Degrees Degrees
 
-turn :: Side -> Task ()
+turn :: Side -> Task _ ()
 turn s = task (startTurn s) runTurn
 
 startTurn :: Side -> Orientation -> Memory Orientation
@@ -307,7 +306,7 @@ runTurn (Memory to) from = if abs d <= errTurn
 
 data Direction = Forward Centimeters | Backward Centimeters
 
-move :: Direction -> Task ()
+move :: Direction -> Task _ ()
 move d = task (startMove d) runMove
 
 startMove :: Direction -> Orientation -> Position -> Memory Position
@@ -324,16 +323,16 @@ runMove (Memory to) from = if abs dist <= errMove
     else Left (Velocity dist 0)
   where dist = magnitudeVec (subVec (positionToVec to) (positionToVec from))
 
-mainM = simulateTaskIn world2 (move $ Forward 32)
+mainM = simulate (Kobuki $ Just world2) (move $ Forward 32)
 
 -- draw square
 
-drawSquare :: Task ()
+drawSquare :: Task _ ()
 drawSquare = replicateM_ 4 $ do
     move (Forward 32)
     turn (Left 90)
     
-main = simulateTaskIn world2 drawSquare
+main = simulate (Kobuki $ Just world2) drawSquare
 ~~~~~
 
 

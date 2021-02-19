@@ -211,6 +211,8 @@ buildArgs "rosy" =
     [ "-DGHCJS_BROWSER"
     , "-ferror-spans"
     , "-fno-diagnostics-show-caret"
+    , "-host-package-db"
+    , "/home/haslab/codeworld-rosy/build/.ghcup/ghc/8.6.5/lib/ghc-8.6.5/package.conf.d"
     , "-hide-package"
     , "base"
     , "-package"
