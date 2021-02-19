@@ -1,7 +1,9 @@
 This is a collection of examples that demonstrate the capabilities of
 Rosy.
 
-Example: Move forward
+# Kobuki
+
+Example: Move Kobuki forward
 ================
 
 This example makes a robot move forward at a constant velocity of 0.5 m/s.
@@ -231,7 +233,7 @@ This example demonstrates how to implement a simple task that makes the robot ro
 ~~~~~ . clickable
 type Side = Either Degrees Degrees
 
-turn :: Side -> Task _ ()
+turn :: Side -> Task () ()
 turn s = task (startTurn s) runTurn
 
 startTurn :: Side -> Orientation -> Memory Orientation
@@ -258,7 +260,7 @@ This example demonstrates how to implement a simple task that makes the robot mo
 ~~~~~ . clickable
 data Direction = Forward Centimeters | Backward Centimeters
 
-move :: Direction -> Task _ ()
+move :: Direction -> Task () ()
 move d = task (startMove d) runMove
 
 startMove :: Direction -> Position -> Memory Position
@@ -287,7 +289,7 @@ This example demonstrates how to make the robot draw a square with his movement.
 
 type Side = Either Degrees Degrees
 
-turn :: Side -> Task _ ()
+turn :: Side -> Task () ()
 turn s = task (startTurn s) runTurn
 
 startTurn :: Side -> Orientation -> Memory Orientation
@@ -306,7 +308,7 @@ runTurn (Memory to) from = if abs d <= errTurn
 
 data Direction = Forward Centimeters | Backward Centimeters
 
-move :: Direction -> Task _ ()
+move :: Direction -> Task () ()
 move d = task (startMove d) runMove
 
 startMove :: Direction -> Orientation -> Position -> Memory Position
@@ -327,7 +329,7 @@ mainM = simulate (Kobuki $ Just world2) (move $ Forward 32)
 
 -- draw square
 
-drawSquare :: Task _ ()
+drawSquare :: Task () ()
 drawSquare = replicateM_ 4 $ do
     move (Forward 32)
     turn (Left 90)
@@ -335,4 +337,37 @@ drawSquare = replicateM_ 4 $ do
 main = simulate (Kobuki $ Just world2) drawSquare
 ~~~~~
 
+# Turtlesim
+
+Example: Task - Move forward or backward for a number of centimeters
+=====================
+
+This example demonstrates how to implement a simple task that makes the Turtlesim robot move forward or backward.
+
+~~~~~ . clickable
+data Direction = Forward Centimeters | Backward Centimeters
+
+startMove :: Turtle n () -> Direction -> Turtle n Position -> Turtle n Orientation -> (Memory Position,Memory Orientation)
+startMove _ dist (Turtle pos) (Turtle o@(Orientation ang)) = (Memory dest,Memory $ normOrientation o)
+    where
+    dest = vecToPosition $ addVec (positionToVec pos) (scalarVec d ang)
+    d = case dist of { Forward d -> d; Backward d -> -d }
+
+errMove = 0.01
+
+runMove :: Turtle n () -> Turtle n Position -> Memory Position -> Memory Orientation -> Either (Turtle n Velocity) (Turtle n Velocity,Done ())
+runMove _ (Turtle now) (Memory dest) (Memory o) = if dist <= errMove
+    then Right (Turtle $ Velocity 0 0,Done ())
+    else Left (Turtle $ Velocity vel 0)
+  where
+  diff = subVec (positionToVec dest) (positionToVec now)
+  dist = magnitudeVec diff
+  ang = angleVec diff
+  vel = if signum (normOrientation $ Orientation ang) == signum o then dist else -dist
+  
+move :: TurtleNumber -> Direction -> Task () ()
+move n m = onTurtle n $ \t -> task (startMove t m) (runMove t)
+
+main = simulate Turtlesim (move 1 $ Forward 1)
+~~~~~
 
