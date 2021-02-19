@@ -339,6 +339,33 @@ main = simulate (Kobuki $ Just world2) drawSquare
 
 # Turtlesim
 
+Example: Task - Turn left or right by a number of degrees
+=====================
+
+This example demonstrates how to implement a simple task that makes the robot rotate to the left or to the right.
+
+~~~~~ . clickable
+type Side = Either Degrees Degrees
+    
+startTurn :: Turtle n () -> Side -> Turtle n Orientation -> (Memory Orientation)
+startTurn _ ang (Turtle o) = (Memory $ o+degreesToOrientation a)
+  where a = case ang of { Left a -> a; Right a -> -a }
+
+errTurn = 0.01
+
+runTurn :: Turtle n () -> Memory Orientation -> Turtle n Orientation -> Either (Turtle n Velocity) (Turtle n Velocity,Done ())
+runTurn _ (Memory to) (Turtle from) = if abs d <= errTurn
+    then Right (Turtle $ Velocity 0 0,Done ())
+    else Left (Turtle $ Velocity 0 $ orientation d)
+  where d = normOrientation (to-from)
+
+turn :: TurtleNumber -> Side -> Task () ()
+turn n m = onTurtle n $ \t -> task (startTurn t m) (runTurn t)
+    
+main = simulate Turtlesim (turn 1 $ Left 90)
+~~~~~
+
+
 Example: Task - Move forward or backward for a number of centimeters
 =====================
 
