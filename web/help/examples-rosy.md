@@ -390,7 +390,7 @@ runMove _ (Turtle now) (Memory dest) (Memory o) = if dist <= errMove
   diff = subVec (positionToVec dest) (positionToVec now)
   dist = magnitudeVec diff
   ang = angleVec diff
-  vel = if signum (normOrientation $ Orientation ang) == signum o then dist else -dist
+  vel = if abs (normOrientation (Orientation ang-o)) >= Orientation pi/2 then -dist else dist
   
 move :: TurtleNumber -> Direction -> Task () ()
 move n m = onTurtle n $ \t -> task (startMove t m) (runMove t)
@@ -441,7 +441,7 @@ runMove _ (Turtle now) (Memory dest) (Memory o) = if dist <= errMove
   diff = subVec (positionToVec dest) (positionToVec now)
   dist = magnitudeVec diff
   ang = angleVec diff
-  vel = if signum (normOrientation $ Orientation ang) == signum o then dist else -dist
+  vel = if abs (normOrientation (Orientation ang-o)) >= Orientation pi/2 then -dist else dist
   
 move :: TurtleNumber -> Direction -> Task () ()
 move n m = onTurtle n $ \t -> task (startMove t m) (runMove t)
@@ -505,7 +505,7 @@ runMove _ (Turtle now) (Memory dest) (Memory o) = if dist <= errMove
   diff = subVec (positionToVec dest) (positionToVec now)
   dist = magnitudeVec diff
   ang = angleVec diff
-  vel = if signum (normOrientation $ Orientation ang) == signum o then dist else -dist
+  vel = if abs (normOrientation (Orientation ang-o)) >= Orientation pi/2 then -dist else dist
   
 move :: TurtleNumber -> Direction -> Task () ()
 move n m = onTurtle n $ \t -> task (startMove t m) (runMove t)
