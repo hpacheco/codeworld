@@ -398,3 +398,67 @@ move n m = onTurtle n $ \t -> task (startMove t m) (runMove t)
 main = simulate Turtlesim (move 1 $ Forward 1)
 ~~~~~
 
+Example: Task - Draw a spiral with a color gradiant
+=====================
+
+This example demonstrates how to implement a simple task that makes the Turtlesim robot move forward or backward.
+
+~~~~~ . clickable
+type Side = Either Degrees Degrees
+    
+startTurn :: Turtle n () -> Side -> Turtle n Orientation -> (Memory Orientation)
+startTurn _ ang (Turtle o) = (Memory $ o+degreesToOrientation a)
+  where a = case ang of { Left a -> a; Right a -> -a }
+
+errTurn = 0.01
+
+runTurn :: Turtle n () -> Memory Orientation -> Turtle n Orientation -> Either (Turtle n Velocity) (Turtle n Velocity,Done ())
+runTurn _ (Memory to) (Turtle from) = if abs d <= errTurn
+    then Right (Turtle $ Velocity 0 0,Done ())
+    else Left (Turtle $ Velocity 0 $ orientation d)
+  where d = normOrientation (to-from)
+
+turn :: TurtleNumber -> Side -> Task () ()
+turn n m = onTurtle n $ \t -> task (startTurn t m) (runTurn t)
+    
+----
+
+data Direction = Forward Centimeters | Backward Centimeters
+
+startMove :: Turtle n () -> Direction -> Turtle n Position -> Turtle n Orientation -> (Memory Position,Memory Orientation)
+startMove _ dist (Turtle pos) (Turtle o@(Orientation ang)) = (Memory dest,Memory $ normOrientation o)
+    where
+    dest = vecToPosition $ addVec (positionToVec pos) (scalarVec d ang)
+    d = case dist of { Forward d -> d; Backward d -> -d }
+
+errMove = 0.01
+
+runMove :: Turtle n () -> Turtle n Position -> Memory Position -> Memory Orientation -> Either (Turtle n Velocity) (Turtle n Velocity,Done ())
+runMove _ (Turtle now) (Memory dest) (Memory o) = if dist <= errMove
+    then Right (Turtle $ Velocity 0 0,Done ())
+    else Left (Turtle $ Velocity vel 0)
+  where
+  diff = subVec (positionToVec dest) (positionToVec now)
+  dist = magnitudeVec diff
+  ang = angleVec diff
+  vel = if signum (normOrientation $ Orientation ang) == signum o then dist else -dist
+  
+move :: TurtleNumber -> Direction -> Task () ()
+move n m = onTurtle n $ \t -> task (startMove t m) (runMove t)
+
+----
+
+spiral :: TurtleNumber -> Double -> Double -> Double -> Color -> (Color -> Color) -> Task () ()
+spiral n len ang width c upd = do
+    setPen n (Pen c (floor width) On)
+    move n (Forward len)
+    turn n (Left ang)
+    spiral n (len+0.02) (ang-0.5) (width+0.2) (upd c) upd
+
+red_spiral1 = spiral 1 0.2 30 1 black tored
+    where black = Color 0 0 0
+          tored (Color r g b) = Color (r+10) g b
+    
+main = simulate Turtlesim red_spiral1
+~~~~~
+
