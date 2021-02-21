@@ -360,7 +360,7 @@ runTurn _ (Memory to) (Turtle from) = if abs d <= errTurn
   where d = normOrientation (to-from)
 
 turn :: TurtleNumber -> Side -> Task () ()
-turn n m = onTurtle n $ \t -> task (startTurn t m) (runTurn t)
+turn n m = onTurtle n $ \t -> task (runTurn t) (taskOpts { init = startTurn t m })
     
 main = simulate Turtlesim (turn 1 $ Left 90)
 ~~~~~
@@ -393,7 +393,7 @@ runMove _ (Turtle now) (Memory dest) (Memory o) = if dist <= errMove
   vel = if abs (normOrientation (Orientation ang-o)) >= Orientation pi/2 then -dist else dist
   
 move :: TurtleNumber -> Direction -> Task () ()
-move n m = onTurtle n $ \t -> task (startMove t m) (runMove t)
+move n m = onTurtle n $ \t -> task (runMove t) (taskOpts { init = startMove t m })
 
 main = simulate Turtlesim (move 1 $ Forward 1)
 ~~~~~
@@ -419,7 +419,7 @@ runTurn _ (Memory to) (Turtle from) = if abs d <= errTurn
   where d = normOrientation (to-from)
 
 turn :: TurtleNumber -> Side -> Task () ()
-turn n m = onTurtle n $ \t -> task (startTurn t m) (runTurn t)
+turn n m = onTurtle n $ \t -> task (runTurn t) (taskOpts { init = startTurn t m })
     
 ----
 
@@ -444,7 +444,7 @@ runMove _ (Turtle now) (Memory dest) (Memory o) = if dist <= errMove
   vel = if abs (normOrientation (Orientation ang-o)) >= Orientation pi/2 then -dist else dist
   
 move :: TurtleNumber -> Direction -> Task () ()
-move n m = onTurtle n $ \t -> task (startMove t m) (runMove t)
+move n m = onTurtle n $ \t -> task (runMove t) (taskOpts { init = startMove t m })
 
 ----
 
@@ -483,7 +483,7 @@ runTurn _ (Memory to) (Turtle from) = if abs d <= errTurn
   where d = normOrientation (to-from)
 
 turn :: TurtleNumber -> Side -> Task () ()
-turn n m = onTurtle n $ \t -> task (startTurn t m) (runTurn t)
+turn n m = onTurtle n $ \t -> task (runTurn t) (taskOpts { init = startTurn t m })
     
 ----
 
@@ -508,7 +508,7 @@ runMove _ (Turtle now) (Memory dest) (Memory o) = if dist <= errMove
   vel = if abs (normOrientation (Orientation ang-o)) >= Orientation pi/2 then -dist else dist
   
 move :: TurtleNumber -> Direction -> Task () ()
-move n m = onTurtle n $ \t -> task (startMove t m) (runMove t)
+move n m = onTurtle n $ \t -> task (runMove t) (taskOpts { init = startMove t m })
 
 ----
 
@@ -530,9 +530,9 @@ green_spiral2 = do
     black = Color 0 0 0
     togreen (Color r g b) = Color r (g+10) b
     
-spiral12 = (call red_spiral1 noCancel noFeedback id,call green_spiral2 noCancel noFeedback id)
+spiral12 = (call red_spiral1 callOpts,call green_spiral2 callOpts)
     
-main = simulate Turtlesim spiral12
+main = simulate Turtlesim (once spiral12)
 ~~~~~
 
 Example: Task - Draw a fractal tree with turtles as leaves
@@ -556,7 +556,7 @@ runTurn _ (Memory to) (Turtle from) = if abs d <= errTurn
   where d = normOrientation (to-from)
 
 turn :: TurtleNumber -> Side -> Task () ()
-turn n m = onTurtle n $ \t -> task (startTurn t m) (runTurn t)
+turn n m = onTurtle n $ \t -> task (runTurn t) (taskOpts { init = startTurn t m })
     
 ----
 
@@ -581,7 +581,7 @@ runMove _ (Turtle now) (Memory dest) (Memory o) = if dist <= errMove
   vel = if abs (normOrientation (Orientation ang-o)) >= Orientation pi/2 then -dist else dist
   
 move :: TurtleNumber -> Direction -> Task () ()
-move n m = onTurtle n $ \t -> task (startMove t m) (runMove t)
+move n m = onTurtle n $ \t -> task (runMove t) (taskOpts { init = startMove t m })
 
 ----
 
@@ -589,7 +589,7 @@ getLocation :: Turtle n () -> Turtle n Position -> Turtle n Orientation -> Done 
 getLocation _ (Turtle p) (Turtle n) = Done (p,n)
 
 location :: TurtleNumber -> Task () (Position,Orientation)
-location n = onTurtle n $ \t -> task () (getLocation t)
+location n = onTurtle n $ \t -> task (getLocation t) taskOpts
 
 ----
 
