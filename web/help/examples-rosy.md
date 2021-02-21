@@ -620,4 +620,31 @@ reposition = do
 main = simulate Turtlesim (reposition >> tree 3 1 3)
 ~~~~~
 
+Example: Task - TurtleSim rotateAbsolute with feedback and cancellation
+=====================
 
+This example demonstrates how to write an action that mimics the turtlesim [rotateAbsolute](https://github.com/ros/ros_tutorials/blob/foxy-devel/turtlesim/src/turtle.cpp), that rotates a turtle to a certain angle while providing orientation feedback.
+This action may also be cancelled, halting the turtle rotation.
+
+~~~~~ . clickable
+startRotAbs :: Turtle n () -> Turtle n Orientation -> Seconds -> (Memory Radians)
+startRotAbs _ (Turtle (Orientation o)) now = (Memory o)
+
+doRotAbs :: Radians -> Turtle n () -> Turtle n Orientation -> Memory Radians -> Either (Feedback Radians,Turtle n Velocity) (Turtle n Velocity,Done Radians)
+doRotAbs dest _ (Turtle (Orientation now)) (Memory start) = if abs remaining <= 0.02
+    then Right (Turtle $ Velocity 0 0,Done delta)
+    else Left (Feedback remaining,Turtle $ Velocity 0 $ if remaining < 0 then -remaining else remaining)
+  where delta = normRadians $ start - now
+        remaining = normRadians $ dest - now
+    
+cancelRotAbs :: Turtle n () -> (Turtle n Velocity)
+cancelRotAbs _ = (Turtle $ Velocity 0 0)
+
+rotateAbsolute :: TurtleNumber -> Radians -> Task Radians Radians
+rotateAbsolute n ang = onTurtle n $ \t -> task (doRotAbs ang t) $ TaskOpts (startRotAbs t) (cancelRotAbs t)
+
+cancelT :: Turtle 1 Orientation -> Maybe Cancel
+cancelT (Turtle (Orientation o)) = if o >= pi/2 then Just Cancel else Nothing
+
+main = simulate Turtlesim (once (call (rotateAbsolute 1 pi) $ CallOpts cancelT (Say . ("f:"++) . show) (Say . ("d:"++) . show)))
+~~~~~
