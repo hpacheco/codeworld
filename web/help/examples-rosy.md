@@ -234,7 +234,7 @@ This example demonstrates how to implement a simple task that makes the robot ro
 type Side = Either Degrees Degrees
 
 turn :: Side -> Task () ()
-turn s = task (startTurn s) runTurn
+turn s = task runTurn (taskOpts { init = startTurn s })
 
 startTurn :: Side -> Orientation -> Memory Orientation
 startTurn (Left a)  o = Memory (o+degreesToOrientation a)
@@ -261,7 +261,7 @@ This example demonstrates how to implement a simple task that makes the robot mo
 data Direction = Forward Centimeters | Backward Centimeters
 
 move :: Direction -> Task () ()
-move d = task (startMove d) runMove
+move d = task runMove (taksOpts { init = startMove d })
 
 startMove :: Direction -> Position -> Memory Position
 startMove (Forward cm) p = Memory $ vecToPosition $ extVec (positionToVec p) $ centimetersToMeters cm
@@ -290,7 +290,7 @@ This example demonstrates how to make the robot draw a square with his movement.
 type Side = Either Degrees Degrees
 
 turn :: Side -> Task () ()
-turn s = task (startTurn s) runTurn
+turn s = task runTurn (taskOpts { init = startTurn s })
 
 startTurn :: Side -> Orientation -> Memory Orientation
 startTurn (Left a)  o = Memory (o+degreesToOrientation a)
@@ -309,7 +309,7 @@ runTurn (Memory to) from = if abs d <= errTurn
 data Direction = Forward Centimeters | Backward Centimeters
 
 move :: Direction -> Task () ()
-move d = task (startMove d) runMove
+move d = task runMove (taskOpts { init = startMove d })
 
 startMove :: Direction -> Orientation -> Position -> Memory Position
 startMove d (Orientation angle) p = Memory $ vecToPosition $ addVec (positionToVec p) $ scalarVec (magnitude d) angle
