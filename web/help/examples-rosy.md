@@ -648,3 +648,42 @@ cancelT (Turtle (Orientation o)) = if o >= pi/2 then Just Cancel else Nothing
 
 main = simulate Turtlesim (once (call (rotateAbsolute 1 pi) $ CallOpts cancelT (Say . ("f:"++) . show) (Say . ("d:"++) . show)))
 ~~~~~
+
+Example: Task - Follow the leader
+=====================
+
+This example demonstrates how to control multiple turtles at the same time with a single controller. In this case, all turtles are commmanded to follow a designated leader, that may be changed at any time using a global parameter.
+
+~~~~~ . clickable
+advertise :: Param TurtleNumber -> AnyTurtle Position -> Maybe (Memory Position)
+advertise (Param n1) (AnyTurtle n2 p) = if n1 == n2
+    then Just (Memory p) else Nothing
+
+follow :: Param TurtleNumber -> Memory Position -> AnyTurtle Pose -> (AnyTurtle Velocity)
+follow (Param l) (Memory p2) (AnyTurtle n pose) = 
+  | n == l = (AnyTurtle n $ Velocity 0.5 0.2)
+  | otherwise = (AnyTurtle n $ Velocity vl va)
+      where p1 = posePosition pose
+            Orientation o = poseOrientation pose
+            vec = subVec (positionToVec p2) (positionToVec p1)
+            a = angleVec vec
+            vl = if abs va < 0.2 then magnitudeVec vec else 0
+            va = normRadians $ a - o
+
+followTheLeader :: Task () ()
+followTheLeader = task (advertise,follow) taskOpts
+
+go = do {
+  setLeader 1;
+  spawn (Position 1 1) (Orientation 0);
+  spawn (Position 9 9) (Orientation 0);
+  spawn (Position 9 1) (Orientation 0);
+  spawn (Position 1 9) (Orientation 0);
+  followTheLeader
+}
+
+setLeader :: TurtleNumber -> Task () () 
+setLeader p = task (Done ()) (taskOpts {init = Param p})
+
+main = simulate Turtlesim go
+~~~~~
