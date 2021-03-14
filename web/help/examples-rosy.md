@@ -660,7 +660,7 @@ advertise (Param n1) (AnyTurtle n2 p) = if n1 == n2
     then Just (Memory p) else Nothing
 
 follow :: Param TurtleNumber -> Memory Position -> AnyTurtle Pose -> (AnyTurtle Velocity)
-follow (Param l) (Memory p2) (AnyTurtle n pose) = 
+follow (Param l) (Memory p2) (AnyTurtle n pose) 
   | n == l = (AnyTurtle n $ Velocity 0.5 0.2)
   | otherwise = (AnyTurtle n $ Velocity vl va)
       where p1 = posePosition pose
